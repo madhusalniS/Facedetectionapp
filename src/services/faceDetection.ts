@@ -87,11 +87,11 @@ export function getDetectorOptions(settings: DetectionSettings) {
   if (settings.detector === 'tiny') {
     return new faceapi.TinyFaceDetectorOptions({
       inputSize: settings.inputSize || 416,
-      scoreThreshold: settings.minConfidence || 0.4,
+      scoreThreshold: settings.minConfidence !== undefined ? settings.minConfidence : 0.55,
     });
   } else {
     return new faceapi.SsdMobilenetv1Options({
-      minConfidence: settings.minConfidence || 0.45,
+      minConfidence: settings.minConfidence !== undefined ? settings.minConfidence : 0.55,
     });
   }
 }

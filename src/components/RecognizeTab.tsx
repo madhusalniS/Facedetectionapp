@@ -33,6 +33,7 @@ interface RecognizeTabProps {
   enrolledPeople: EnrolledPerson[];
   settings: DetectionSettings;
   onOpenSettings: () => void;
+  onUpdateSettings?: (newSettings: DetectionSettings) => void;
   isModelReady: boolean;
 }
 
@@ -40,6 +41,7 @@ export const RecognizeTab: React.FC<RecognizeTabProps> = ({
   enrolledPeople,
   settings,
   onOpenSettings,
+  onUpdateSettings,
   isModelReady,
 }) => {
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
@@ -105,6 +107,13 @@ export const RecognizeTab: React.FC<RecognizeTabProps> = ({
     return () => window.removeEventListener('resize', render);
   }, [summary, settings.drawLandmarks]);
 
+  // Re-run recognition when detector, minConfidence or threshold changes and an image is loaded
+  useEffect(() => {
+    if (selectedImageSrc) {
+      runRecognition(selectedImageSrc);
+    }
+  }, [settings.detector, settings.minConfidence, settings.threshold]);
+
   const handleFileUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
@@ -155,19 +164,65 @@ export const RecognizeTab: React.FC<RecognizeTabProps> = ({
         </div>
 
         {/* Current matching params info */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Quick detector switch */}
+          {onUpdateSettings && (
+            <div className="flex items-center p-0.5 bg-neutral-100 dark:bg-neutral-800 rounded-lg text-xs font-medium border border-neutral-200 dark:border-neutral-700">
+              <button
+                type="button"
+                onClick={() => onUpdateSettings({ ...settings, detector: 'tiny' })}
+                className={`px-2.5 py-1 rounded-md transition-all ${
+                  settings.detector === 'tiny'
+                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs font-semibold'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                }`}
+              >
+                TinyFace (Fast)
+              </button>
+              <button
+                type="button"
+                onClick={() => onUpdateSettings({ ...settings, detector: 'ssd' })}
+                className={`px-2.5 py-1 rounded-md transition-all ${
+                  settings.detector === 'ssd'
+                    ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-xs font-semibold'
+                    : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
+                }`}
+                title="Deep network - High accuracy, eliminates false clothing detections"
+              >
+                SSD MobileNet (Accurate)
+              </button>
+            </div>
+          )}
+
+          {/* Detector Confidence threshold */}
+          {onUpdateSettings && (
+            <div className="flex items-center gap-1.5 text-xs font-mono text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <span className="text-[11px] text-neutral-400">Min Conf:</span>
+              <select
+                value={settings.minConfidence || 0.55}
+                onChange={(e) => onUpdateSettings({ ...settings, minConfidence: parseFloat(e.target.value) })}
+                className="bg-transparent font-semibold font-mono text-neutral-900 dark:text-white cursor-pointer focus:outline-none"
+                title="Minimum confidence required for a face detection. Increase to 0.60+ if detecting patterns on shirts."
+              >
+                <option value="0.45" className="dark:bg-neutral-800">45%</option>
+                <option value="0.55" className="dark:bg-neutral-800">55% (Default)</option>
+                <option value="0.65" className="dark:bg-neutral-800">65% (Strict)</option>
+                <option value="0.75" className="dark:bg-neutral-800">75% (High)</option>
+              </select>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 text-xs font-mono text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700">
-            <span>Threshold: <strong>{settings.threshold.toFixed(2)}</strong></span>
-            <span aria-hidden="true">·</span>
-            <span>Detector: <strong>{settings.detector.toUpperCase()}</strong></span>
+            <span>Match Thresh: <strong>{settings.threshold.toFixed(2)}</strong></span>
           </div>
+
           <button
             type="button"
             onClick={onOpenSettings}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700/60 transition-colors"
           >
             <Sliders className="w-3.5 h-3.5" />
-            <span>Adjust Settings</span>
+            <span>Settings</span>
           </button>
         </div>
       </div>
@@ -242,42 +297,45 @@ export const RecognizeTab: React.FC<RecognizeTabProps> = ({
 
             {/* Visual Viewport with Canvas Overlay */}
             {selectedImageSrc ? (
-              <div className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-950 flex items-center justify-center min-h-[360px] shadow-lg group">
-                {/* High-tech Viewfinder Corners */}
-                <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-emerald-500/60 z-10 pointer-events-none" />
-                <div className="absolute top-3 right-3 w-5 h-5 border-t-2 border-r-2 border-emerald-500/60 z-10 pointer-events-none" />
-                <div className="absolute bottom-3 left-3 w-5 h-5 border-b-2 border-l-2 border-emerald-500/60 z-10 pointer-events-none" />
-                <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-emerald-500/60 z-10 pointer-events-none" />
+              <div className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-neutral-950 flex items-center justify-center min-h-[360px] p-2 sm:p-4 shadow-lg group">
+                {/* Inner wrapper matching EXACT image dimensions without letterboxing */}
+                <div className="relative inline-block max-w-full">
+                  {/* High-tech Viewfinder Corners */}
+                  <div className="absolute top-1 left-1 w-5 h-5 border-t-2 border-l-2 border-emerald-500/70 z-10 pointer-events-none" />
+                  <div className="absolute top-1 right-1 w-5 h-5 border-t-2 border-r-2 border-emerald-500/70 z-10 pointer-events-none" />
+                  <div className="absolute bottom-1 left-1 w-5 h-5 border-b-2 border-l-2 border-emerald-500/70 z-10 pointer-events-none" />
+                  <div className="absolute bottom-1 right-1 w-5 h-5 border-b-2 border-r-2 border-emerald-500/70 z-10 pointer-events-none" />
 
-                {/* Animated Biometric Scanline sweep when analyzing */}
-                {isProcessing && <div className="animate-scanline z-20" />}
+                  {/* Animated Biometric Scanline sweep when analyzing */}
+                  {isProcessing && <div className="animate-scanline z-20" />}
 
-                {/* Original Image */}
-                <img
-                  ref={imageRef}
-                  src={selectedImageSrc}
-                  alt="Recognition Input"
-                  className="w-full h-auto max-h-[600px] object-contain block transition-transform duration-300"
-                  onLoad={() => {
-                    if (summary && imageRef.current && canvasRef.current) {
-                      drawOverlay(
-                        canvasRef.current,
-                        {
-                          width: imageRef.current.clientWidth,
-                          height: imageRef.current.clientHeight,
-                        },
-                        summary,
-                        { drawLandmarks: settings.drawLandmarks, showScores: true }
-                      );
-                    }
-                  }}
-                />
+                  {/* Original Image */}
+                  <img
+                    ref={imageRef}
+                    src={selectedImageSrc}
+                    alt="Recognition Input"
+                    className="block max-w-full max-h-[640px] w-auto h-auto rounded-lg mx-auto"
+                    onLoad={() => {
+                      if (summary && imageRef.current && canvasRef.current) {
+                        drawOverlay(
+                          canvasRef.current,
+                          {
+                            width: imageRef.current.clientWidth,
+                            height: imageRef.current.clientHeight,
+                          },
+                          summary,
+                          { drawLandmarks: settings.drawLandmarks, showScores: true }
+                        );
+                      }
+                    }}
+                  />
 
-                {/* Overlaid Canvas */}
-                <canvas
-                  ref={canvasRef}
-                  className="absolute inset-0 pointer-events-none w-full h-full z-15"
-                />
+                  {/* Overlaid Canvas matching image bounds EXACTLY */}
+                  <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 pointer-events-none w-full h-full z-15"
+                  />
+                </div>
 
                 {/* Processing Overlay HUD */}
                 {isProcessing && (

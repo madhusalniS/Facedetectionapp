@@ -179,6 +179,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
+          {/* Setting 2B: Min Face Detection Confidence */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-xs font-semibold text-neutral-900 dark:text-white">
+                  Min Face Detection Confidence
+                </label>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  Filters out false face candidates caused by clothing folds, badges, or shadows.
+                </p>
+              </div>
+              <span className="text-sm font-bold font-mono tabular-nums text-neutral-900 dark:text-white px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded">
+                {Math.round((settings.minConfidence ?? 0.55) * 100)}%
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min="0.40"
+              max="0.80"
+              step="0.05"
+              value={settings.minConfidence ?? 0.55}
+              onChange={(e) => onUpdateSettings({ ...settings, minConfidence: parseFloat(e.target.value) })}
+              className="w-full h-2 bg-neutral-200 dark:bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-neutral-900 dark:accent-neutral-100"
+            />
+
+            <div className="flex justify-between text-[10px] text-neutral-400 font-mono">
+              <span>40% (Permissive)</span>
+              <span>55% (Default / Clean)</span>
+              <span>80% (Strict)</span>
+            </div>
+          </div>
+
           {/* Setting 3: Landmark Overlays */}
           <div className="flex items-center justify-between py-2 border-t border-b border-neutral-100 dark:border-neutral-800">
             <div>

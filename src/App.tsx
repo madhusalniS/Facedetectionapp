@@ -228,6 +228,7 @@ export default function App() {
             enrolledPeople={enrolledPeople}
             settings={settings}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onUpdateSettings={handleUpdateSettings}
             isModelReady={modelStatus.loaded}
           />
         )}
